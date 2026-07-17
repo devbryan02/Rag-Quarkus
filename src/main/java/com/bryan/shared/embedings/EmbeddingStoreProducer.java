@@ -1,4 +1,4 @@
-package com.bryan.shared;
+package com.bryan.shared.embedings;
 
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
