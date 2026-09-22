@@ -49,11 +49,12 @@ DocumentUploadResponse { success, filename, message }  (201)
 
 Startup:
   DocumentIngestor (@PostConstruct)
+    ├── Si la tabla de PgVector ya tiene datos: omite la ingestión (evita duplicados en reinicios)
     ├── Lee archivos del directorio configurado
     ├── DocumentLoaderFactory resuelve parser por extensión
     ├── DocumentSplitter recursive (300 chars, overlap 30)
     ├── Genera embeddings (AllMiniLmL6V2, local)
-    └── Almacena en InMemoryEmbeddingStore
+    └── Almacena en PgVector (persistente, servicio "pgvector" en docker-compose)
 
 EmbeddingIngestionService centraliza el splitter + embed + store: lo usan
 tanto DocumentIngestor (arranque) como DocumentUploadResource (POST /documents).
@@ -154,7 +155,7 @@ Al iniciar la app, `DocumentIngestor` ejecuta el pipeline completo:
 
 3. **Embedding:** `AllMiniLmL6V2EmbeddingModel` genera vectores de 384 dimensiones localmente (ONNX, sin llamadas a red).
 
-4. **Almacenamiento:** `InMemoryEmbeddingStore` — se pierde al reiniciar, se re-indexa automáticamente.
+4. **Almacenamiento:** `PgVector` (Postgres con extensión pgvector) — persiste entre reinicios. `DocumentIngestor` solo re-indexa desde disco si la tabla está vacía.
 
 ---
 
@@ -236,7 +237,26 @@ public interface RetrievalConfig {
 ```bash
 ./gradlew quarkusDev
 # Dev UI: http://localhost:8080/q/dev/
+# Swagger UI: http://localhost:8080/q/swagger-ui
+# OpenAPI (JSON): http://localhost:8080/q/openapi
 ```
+
+### Colección funcional (Postman / Bruno)
+
+`test/functional/postman.json` — un solo archivo con variables (`baseUrl`,
+`apiKey`), flujos exitosos, de error y de borde para `/chat` y
+`/documents`, con pre-request y test scripts (incluye armado manual de
+`multipart/form-data` para los casos de subida de documentos y una ráfaga
+de solicitudes para forzar el rate limit de `/chat`).
+
+- **Postman:** Import → File → `test/functional/postman.json` → completar
+  la variable de colección `apiKey` con tu `API_KEY` real.
+- **Bruno:** Import Collection → Postman v2.1 → seleccionar el mismo
+  archivo.
+- **CLI (Newman):**
+  ```bash
+  newman run test/functional/postman.json --env-var apiKey=tu_api_key
+  ```
 
 ### Ejemplo de petición
 
@@ -303,7 +323,7 @@ Dos formas de agregar documentos al índice:
 
 | Aspecto | Actual | Recomendación |
 |---|---|---|
-| Store de vectores | `InMemoryEmbeddingStore` | PgVector, Chroma o Milvus |
+| Store de vectores | `PgVector` (persistente, vía `quarkus-langchain4j-pgvector`) | — |
 | Seguridad | `X-API-Key` header | Evaluar OAuth2/JWT |
 | API Key | Env var `API_KEY` | Vault o secrets manager |
 | Logging | Requests/responses habilitados | Desactivar en prod |
