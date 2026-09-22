@@ -11,7 +11,7 @@ Sistema **RAG (Retrieval-Augmented Generation)** con **Quarkus 3.37** y **LangCh
 
 ```
 POST /chat
-  │  X-API-Key header requerido (solo /chat)
+  │  X-API-Key header requerido
   ▼
 ApiKeyFilter ──► ChatResource (@RateLimit: 10/min)
   │                  │
@@ -34,6 +34,19 @@ Groq API (llama-3.3-70b-versatile, temp=0.3)
   ▼
 ChatResponse { answer }
 
+POST /documents
+  │  X-API-Key header requerido, multipart/form-data (campo "file")
+  ▼
+ApiKeyFilter ──► DocumentUploadResource
+  │                  ├── Valida extensión, nombre y contenido (DocumentLoaderFactory.isSupported)
+  │                  ├── Sanea el nombre de archivo (getFileName, evita path traversal)
+  │                  ├── Guarda en rag.ingestion.documents-path (rechaza duplicados con 409)
+  │                  ├── DocumentLoaderFactory parsea el archivo guardado
+  │                  ├── Si falla el parseo/indexado: borra el archivo y responde 400 (sin huérfanos)
+  │                  └── EmbeddingIngestionService.ingest(...) indexa de inmediato
+  ▼
+DocumentUploadResponse { success, filename, message }  (201)
+
 Startup:
   DocumentIngestor (@PostConstruct)
     ├── Lee archivos del directorio configurado
@@ -41,6 +54,9 @@ Startup:
     ├── DocumentSplitter recursive (300 chars, overlap 30)
     ├── Genera embeddings (AllMiniLmL6V2, local)
     └── Almacena en InMemoryEmbeddingStore
+
+EmbeddingIngestionService centraliza el splitter + embed + store: lo usan
+tanto DocumentIngestor (arranque) como DocumentUploadResource (POST /documents).
 ```
 
 ---
@@ -57,11 +73,17 @@ src/main/java/com/bryan/
 │   │       ├── ChatRequest.java        # DTO entrada: { question }
 │   │       └── ChatResponse.java       # DTO salida: { answer }
 │   ├── ingestion/
-│   │   ├── DocumentIngestor.java       # Ingesta al arrancar
-│   │   ├── DocumentLoaderFactory.java  # Parser factory por extensión
-│   │   ├── IngestionConfig.java        # @ConfigMapping rag.ingestion.*
+│   │   ├── DocumentIngestor.java          # Ingesta al arrancar
+│   │   ├── DocumentUploadResource.java    # POST /documents (carga + indexado en caliente)
+│   │   ├── DocumentLoaderFactory.java     # Parser factory + isSupported(fileName) por extensión
+│   │   ├── EmbeddingIngestionService.java # Splitter + embed + store, compartido por arranque y upload
+│   │   ├── IngestionConfig.java           # @ConfigMapping rag.ingestion.*
+│   │   ├── records/
+│   │   │   └── DocumentUploadResponse.java # DTO salida: { success, filename, message }
 │   │   └── exceptions/
-│   │       └── DocumentLoadException.java
+│   │       ├── DocumentLoadException.java
+│   │       ├── UnsupportedDocumentTypeException.java  # → 400
+│   │       └── DuplicateDocumentException.java        # → 409
 │   └── rerieval/
 │       ├── RetrieverProducer.java      # Supplier<RetrievalAugmentor>
 │       └── RetrievalConfig.java        # @ConfigMapping rag.retrieval.*
@@ -70,9 +92,9 @@ src/main/java/com/bryan/
     │   └── EmbeddingStoreProducer.java  # CDI: Store + EmbeddingModel
     ├── exceptions/
     │   ├── ErrorResponse.java           # Record { success, message, status }
-    │   └── GlobalExceptionHandlers.java # RateLimit(429) + genérico(500)
+    │   └── GlobalExceptionHandlers.java # WebApplicationException + RateLimit(429) + tipos de documento (400/409) + genérico(500)
     └── security/
-        └── ApiKeyFilter.java           # Filtro X-API-Key en /chat
+        └── ApiKeyFilter.java           # Filtro X-API-Key en /chat y /documents
 ```
 
 ---
@@ -81,7 +103,7 @@ src/main/java/com/bryan/
 
 ### API Key (`ApiKeyFilter`)
 
-Filtro JAX-RS que intercepta solo paths `/chat`. Requiere header `X-API-Key` que debe coincidir con la variable `API_KEY`. Otros endpoints pasan sin filtro.
+Filtro JAX-RS que intercepta paths `/chat` y `/documents`. Requiere header `X-API-Key` que debe coincidir con la variable `API_KEY`. Otros endpoints pasan sin filtro (es un allowlist por prefijo: cada endpoint nuevo que deba protegerse tiene que agregarse aquí explícitamente).
 
 ```java
 @Provider @Priority(Priorities.AUTHENTICATION)
@@ -90,7 +112,7 @@ public class ApiKeyFilter implements ContainerRequestFilter {
 
     public void filter(ContainerRequestContext ctx) {
         String path = ctx.getUriInfo().getPath();
-        if (!path.startsWith("/chat")) return;
+        if (!path.startsWith("/chat") && !path.startsWith("/documents")) return;
         // Valida X-API-Key header, aborta con 401 si es inválido
     }
 }
@@ -111,7 +133,10 @@ Exception mappers globales via RESTEasy Reactive:
 
 | Excepción | HTTP | Respuesta |
 |---|---|---|
+| `WebApplicationException` | (la que traiga) | Pasa tal cual la respuesta del framework (404, 405, 415, etc.) en vez de aplanarla a 500 |
 | `RateLimitException` | 429 | "Demasiadas solicitudes, intenta de nuevo en unos segundos" |
+| `UnsupportedDocumentTypeException` | 400 | Archivo faltante, sin nombre, extensión no soportada, vacío/en blanco, o no procesable |
+| `DuplicateDocumentException` | 409 | "Ya existe un documento llamado: ..." |
 | `Exception` (genérica) | 500 | "Ocurrió un error inesperado" |
 
 ---
@@ -222,6 +247,22 @@ curl -X POST http://localhost:8080/chat \
   -d '{"question": "¿Qué es MAAC?"}'
 ```
 
+### Cargar un documento en caliente
+
+```bash
+curl -X POST http://localhost:8080/documents \
+  -H "X-API-Key: tu_api_key" \
+  -F "file=@/ruta/a/mi-documento.pdf"
+```
+
+Respuesta (`201 Created`):
+
+```json
+{ "success": true, "filename": "mi-documento.pdf", "message": "Documento indexado correctamente" }
+```
+
+El archivo se guarda en `rag.ingestion.documents-path` y se indexa de inmediato — no hace falta reiniciar. Un nombre de archivo repetido responde `409`; un archivo no soportado, vacío o no procesable responde `400` (y no deja archivos huérfanos en disco).
+
 ### Empaquetado
 
 ```bash
@@ -251,7 +292,10 @@ java -jar build/quarkus-app/quarkus-run.jar
 
 ## Agregar Documentos
 
-Coloca archivos en `src/main/resources/documents/`. Al reiniciar, se indexan automáticamente.
+Dos formas de agregar documentos al índice:
+
+1. **Manual:** coloca archivos en `src/main/resources/documents/` (o el path configurado en `rag.ingestion.documents-path`). Al reiniciar, `DocumentIngestor` los indexa automáticamente.
+2. **API:** `POST /documents` (ver ejemplo arriba) — persiste el archivo en la misma carpeta y lo indexa sin reiniciar. También sobrevive un reinicio, porque queda en `documents-path` igual que los archivos agregados manualmente.
 
 ---
 
@@ -264,3 +308,4 @@ Coloca archivos en `src/main/resources/documents/`. Al reiniciar, se indexan aut
 | API Key | Env var `API_KEY` | Vault o secrets manager |
 | Logging | Requests/responses habilitados | Desactivar en prod |
 | Test | Prueba desactualizada (`/hello`) | Actualizar para `POST /chat` con API key |
+| Rate limiting en `/documents` | Sin límite (solo `/chat` lo tiene) | Agregar `@RateLimit` dimensionado al throughput de carga esperado; ojo con el contador compartido de SmallRye si se prueba con muchas peticiones seguidas |
