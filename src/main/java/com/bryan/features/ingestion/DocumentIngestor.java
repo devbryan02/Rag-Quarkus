@@ -68,7 +68,7 @@ public class DocumentIngestor {
         try (Stream<Path> paths = Files.list(documentsDir)) {
             return paths
                     .filter(Files::isRegularFile)
-                    .filter(this::isSupportedFile)
+                    .filter(path -> loaderFactory.isSupported(path.getFileName().toString()))
                     .map(path -> {
                         LOG.infof("Cargando documento: %s", path.getFileName());
                         return loaderFactory.load(path);
@@ -77,10 +77,5 @@ public class DocumentIngestor {
         } catch (IOException e) {
             throw new RuntimeException("Error leyendo la carpeta de documentos: " + documentsDir, e);
         }
-    }
-
-    private boolean isSupportedFile(Path path) {
-        String name = path.getFileName().toString().toLowerCase();
-        return name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".txt") || name.endsWith(".md");
     }
 }
