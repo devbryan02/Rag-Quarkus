@@ -1,12 +1,6 @@
 package com.bryan.features.ingestion;
 
 import dev.langchain4j.data.document.Document;
-import dev.langchain4j.data.document.DocumentSplitter;
-import dev.langchain4j.data.document.splitter.DocumentSplitters;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
@@ -27,8 +21,7 @@ public class DocumentIngestor {
 
     @Inject IngestionConfig config;
     @Inject DocumentLoaderFactory loaderFactory;
-    @Inject EmbeddingModel embeddingModel;
-    @Inject EmbeddingStore<TextSegment> embeddingStore;
+    @Inject EmbeddingIngestionService embeddingIngestionService;
 
     @PostConstruct
     void ingest() {
@@ -47,18 +40,7 @@ public class DocumentIngestor {
             return;
         }
 
-        DocumentSplitter splitter = DocumentSplitters.recursive(
-                config.chunkSize(),
-                config.chunkOverlap()
-        );
-
-        EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
-                .documentSplitter(splitter)
-                .embeddingModel(embeddingModel)
-                .embeddingStore(embeddingStore)
-                .build();
-
-        ingestor.ingest(documents);
+        embeddingIngestionService.ingest(documents);
 
         LOG.infof("Ingestion completa: %d documento(s) procesado(s) desde %s",
                 documents.size(), documentsDir);
