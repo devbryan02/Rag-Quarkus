@@ -91,6 +91,22 @@
     },
     {
       "name": "Chat",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Falla rapido y claro si apiKey no fue provisto, en vez de dejar que",
+              "// cada request caiga en 401 y produzca fallas de assertion confusas.",
+              "const apiKey = pm.variables.get(\"apiKey\");",
+              "if (!apiKey) {",
+              "    throw new Error(\"La variable de coleccion 'apiKey' esta vacia. Corre con: newman run test/functional/postman.json --env-var apiKey=<tu API_KEY>, o setea el valor en Postman/Bruno antes de correr.\");",
+              "}"
+            ]
+          }
+        }
+      ],
       "item": [
         {
           "name": "Chat - exito",
@@ -279,6 +295,22 @@
     },
     {
       "name": "Documents",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Falla rapido y claro si apiKey no fue provisto, en vez de dejar que",
+              "// cada request caiga en 401 y produzca fallas de assertion confusas.",
+              "const apiKey = pm.variables.get(\"apiKey\");",
+              "if (!apiKey) {",
+              "    throw new Error(\"La variable de coleccion 'apiKey' esta vacia. Corre con: newman run test/functional/postman.json --env-var apiKey=<tu API_KEY>, o setea el valor en Postman/Bruno antes de correr.\");",
+              "}"
+            ]
+          }
+        }
+      ],
       "item": [
         {
           "name": "Documents - exito",
