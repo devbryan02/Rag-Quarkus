@@ -24,7 +24,7 @@ public class ApiKeyFilter  implements ContainerRequestFilter {
         String headerKey = requestContext.getHeaderString("X-API-Key");
 
         String path = requestContext.getUriInfo().getPath();
-        if(!path.startsWith("/chat")) return;
+        if(!path.startsWith("/chat") && !path.startsWith("/documents")) return;
 
         if(headerKey == null || !headerKey.equals(apiKey)){
             requestContext.abortWith(
