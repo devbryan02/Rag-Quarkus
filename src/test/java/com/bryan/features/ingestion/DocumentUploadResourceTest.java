@@ -1,6 +1,13 @@
 package com.bryan.features.ingestion;
 
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
+import dev.langchain4j.store.embedding.EmbeddingSearchResult;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -11,12 +18,18 @@ import java.util.UUID;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 class DocumentUploadResourceTest {
 
     private static final String API_KEY = "test-api-key";
     private static final Path DOCUMENTS_DIR = Path.of("build/test-documents");
+
+    @Inject EmbeddingModel embeddingModel;
+    @Inject EmbeddingStore<TextSegment> embeddingStore;
 
     private Path uploadedFile;
 
@@ -40,6 +53,44 @@ class DocumentUploadResourceTest {
                 .statusCode(201)
                 .body("success", is(true))
                 .body("filename", is(fileName));
+
+        assertTrue(Files.exists(uploadedFile));
+
+        Embedding queryEmbedding = embeddingModel.embed("¿Que animal es nativo de America?").content();
+        EmbeddingSearchResult<TextSegment> result = embeddingStore.search(
+                EmbeddingSearchRequest.builder()
+                        .queryEmbedding(queryEmbedding)
+                        .maxResults(1)
+                        .build()
+        );
+
+        assertEquals(1, result.matches().size());
+        assertTrue(result.matches().get(0).embedded().text().contains("puma"));
+    }
+
+    @Test
+    void rejectsAndCleansUpBlankContentFile() {
+        String fileName = "blank-" + UUID.randomUUID() + ".txt";
+        uploadedFile = DOCUMENTS_DIR.resolve(fileName);
+
+        given()
+                .header("X-API-Key", API_KEY)
+                .multiPart("file", fileName, "\n".getBytes(), "text/plain")
+                .when().post("/documents")
+                .then()
+                .statusCode(400)
+                .body("success", is(false));
+
+        assertFalse(Files.exists(uploadedFile));
+    }
+
+    @Test
+    void passesThroughFrameworkNotFoundInsteadOfGenericError() {
+        given()
+                .header("X-API-Key", API_KEY)
+                .when().post("/documents/nonexistent")
+                .then()
+                .statusCode(404);
     }
 
     @Test

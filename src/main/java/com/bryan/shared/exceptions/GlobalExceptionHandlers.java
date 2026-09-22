@@ -3,6 +3,7 @@ package com.bryan.shared.exceptions;
 import com.bryan.features.ingestion.exceptions.DuplicateDocumentException;
 import com.bryan.features.ingestion.exceptions.UnsupportedDocumentTypeException;
 import io.smallrye.faulttolerance.api.RateLimitException;
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
@@ -10,6 +11,11 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 public class GlobalExceptionHandlers {
 
     private static final Logger LOG = Logger.getLogger(GlobalExceptionHandlers.class);
+
+    @ServerExceptionMapper
+    public Response mapWebApplicationException(WebApplicationException e) {
+        return e.getResponse();
+    }
 
     @ServerExceptionMapper
     public Response mapRateLimit(RateLimitException e) {

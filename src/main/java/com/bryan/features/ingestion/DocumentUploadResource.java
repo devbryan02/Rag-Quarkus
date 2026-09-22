@@ -62,8 +62,18 @@ public class DocumentUploadResource {
             throw new RuntimeException("No se pudo guardar el archivo: " + fileName, e);
         }
 
-        Document document = loaderFactory.load(targetPath);
-        embeddingIngestionService.ingest(List.of(document));
+        try {
+            Document document = loaderFactory.load(targetPath);
+            embeddingIngestionService.ingest(List.of(document));
+        } catch (RuntimeException e) {
+            try {
+                Files.deleteIfExists(targetPath);
+            } catch (IOException ignored) {
+                // best-effort cleanup; the original processing failure is what we report
+            }
+            throw new UnsupportedDocumentTypeException(
+                    "No se pudo procesar el documento: " + fileName);
+        }
 
         return Response.status(Response.Status.CREATED)
                 .entity(new DocumentUploadResponse(true, fileName, "Documento indexado correctamente"))
