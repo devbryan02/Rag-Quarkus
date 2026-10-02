@@ -4,6 +4,7 @@ import com.bryan.features.chat.records.ChatRequest;
 import com.bryan.features.chat.records.ChatResponse;
 import com.bryan.shared.exceptions.ErrorResponse;
 import io.smallrye.faulttolerance.api.RateLimit;
+import io.smallrye.faulttolerance.api.RateLimitType;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -30,7 +31,10 @@ public class ChatResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @RateLimit(value = 10, window = 1, windowUnit = ChronoUnit.MINUTES)
+    // ROLLING: como máximo 10 en cualquier intervalo de 60 s. Con FIXED (el default)
+    // las ventanas van alineadas al arranque de la app y una ráfaga que cruza el borde
+    // de la ventana puede llegar a 20 seguidas sin recibir ningún 429.
+    @RateLimit(value = 10, window = 1, windowUnit = ChronoUnit.MINUTES, type = RateLimitType.ROLLING)
     @SecurityRequirement(name = "ApiKeyAuth")
     @Operation(summary = "Responder una pregunta usando los documentos indexados",
             description = "Genera una respuesta basada exclusivamente en el contenido de los documentos indexados en pgvector. Limitado a 10 solicitudes por minuto.")
