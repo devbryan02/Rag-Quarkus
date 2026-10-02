@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 RAG (Retrieval-Augmented Generation) service built with Quarkus 3.37 + LangChain4j. Answers natural-language questions strictly from indexed documents (PDF, DOCX, TXT, MD).
 
 - **LLM:** `openai/gpt-oss-120b` via Groq API (OpenAI-compatible), overridable with the `GROQ_MODEL` env var
-- **Embeddings:** AllMiniLmL6V2, local/ONNX, 384 dims, no network calls
+- **Embeddings:** paraphrase-multilingual-MiniLM-L12-v2, local/ONNX (int8), 384 dims, no network calls. Model files are not in git: `./gradlew downloadEmbeddingModel` fetches them into `models/` (auto-runs before `quarkusDev`/`test`/`build`)
 
 ## Commands
 
@@ -52,7 +52,7 @@ POST /chat (X-API-Key required)
   → RagAssistant (LangChain4j @RegisterAiService — implementation generated at build time)
       - @SystemMessage forces answers to use only retrieved document context
       - RetrievalAugmentor supplied by RetrieverProducer:
-          EmbeddingStoreContentRetriever(EmbeddingModel, EmbeddingStore, maxResults=3, minScore=0.0)
+          EmbeddingStoreContentRetriever(EmbeddingModel, EmbeddingStore, maxResults=3, minScore=0.5)
   → Groq API (${GROQ_MODEL:openai/gpt-oss-120b}, temp=0.3)
   → ChatResponse { answer }
 ```
@@ -61,13 +61,13 @@ Startup ingestion (`DocumentIngestor`, `@PostConstruct`):
 1. Reads files from `rag.ingestion.documents-path` (`src/main/resources/documents/`)
 2. `DocumentLoaderFactory` picks a parser by extension (`.pdf` → PDFBox, `.docx`/`.doc` → POI, `.txt`/`.md` → plain text)
 3. `DocumentSplitters.recursive(chunkSize, chunkOverlap)` splits into chunks (default 300 chars, 30 overlap)
-4. Embeds locally with AllMiniLmL6V2 and stores in `InMemoryEmbeddingStore` (in-memory — lost on restart, re-indexed automatically on every startup)
+4. Embeds locally and stores in pgvector (table `embeddings_multilingual_minilm`). Startup ingestion is skipped if the table already has rows. Changing the embedding model requires a new table name (vectors from different models are not comparable) and re-indexing
 
 Package layout (`src/main/java/com/bryan/`): feature-based, not layer-based.
 - `features/chat/` — `ChatResource` (endpoint), `RagAssistant` (AI service interface), `records/` (request/response DTOs)
 - `features/ingestion/` — `DocumentIngestor`, `DocumentLoaderFactory`, `IngestionConfig` (`@ConfigMapping rag.ingestion.*`)
 - `features/rerieval/` (note: typo in package name, kept for consistency — don't "fix" it in isolation) — `RetrieverProducer` (`Supplier<RetrievalAugmentor>` CDI bean), `RetrievalConfig` (`@ConfigMapping rag.retrieval.*`)
-- `shared/embedings/` — `EmbeddingStoreProducer` (CDI producers for `EmbeddingStore`/`EmbeddingModel`)
+- `shared/embedings/` — `EmbeddingStoreProducer` (CDI producer for the ONNX `EmbeddingModel`), `EmbeddingConfig` (`@ConfigMapping rag.embedding.*`)
 - `shared/exceptions/` — `GlobalExceptionHandlers` (maps `RateLimitException` → 429, generic `Exception` → 500), `ErrorResponse` record
 - `shared/security/` — `ApiKeyFilter`
 

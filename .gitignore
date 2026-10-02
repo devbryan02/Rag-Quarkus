@@ -43,6 +43,9 @@ nb-configuration.xml
 # Git worktrees
 .worktrees/
 
+# Modelo de embeddings ONNX (lo descarga ./gradlew downloadEmbeddingModel)
+models/
+
 # Claude Code (configuracion local)
 .claude/
 

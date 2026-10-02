@@ -3,7 +3,7 @@
 Sistema **RAG (Retrieval-Augmented Generation)** con **Quarkus 3.37** y **LangChain4j**. Permite preguntas en lenguaje natural sobre documentos indexados (PDF, DOCX, TXT, MD) con respuestas basadas exclusivamente en el contenido de esos documentos.
 
 - **LLM:** `openai/gpt-oss-120b` via API de **Groq** (compatible OpenAI), configurable con la variable `GROQ_MODEL`
-- **Embeddings:** AllMiniLmL6V2 (local, 384 dimensiones, sin red)
+- **Embeddings:** `paraphrase-multilingual-MiniLM-L12-v2` (ONNX local, 384 dimensiones, multilingüe, sin red)
 
 ---
 
@@ -23,9 +23,9 @@ RagAssistant.chat(question)
   ├── @SystemMessage: "Responde SOLO con contexto de documentos"
   ├── RetrieverProducer (Supplier<RetrievalAugmentor>):
   │     EmbeddingStoreContentRetriever
-  │       ├── EmbeddingModel (AllMiniLmL6V2, local)
-  │       ├── EmbeddingStore (InMemory)
-  │       ├── maxResults=3, minScore=0.0
+  │       ├── EmbeddingModel (paraphrase-multilingual-MiniLM-L12-v2, local)
+  │       ├── EmbeddingStore (PgVector)
+  │       ├── maxResults=3, minScore=0.5
   │     └── DefaultRetrievalAugmentor inyecta contexto al prompt
   │
   ▼
@@ -53,7 +53,7 @@ Startup:
     ├── Lee archivos del directorio configurado
     ├── DocumentLoaderFactory resuelve parser por extensión
     ├── DocumentSplitter recursive (300 chars, overlap 30)
-    ├── Genera embeddings (AllMiniLmL6V2, local)
+    ├── Genera embeddings (paraphrase-multilingual-MiniLM-L12-v2, local)
     └── Almacena en PgVector (persistente, servicio "pgvector" en docker-compose)
 
 EmbeddingIngestionService centraliza el splitter + embed + store: lo usan
@@ -153,7 +153,9 @@ Al iniciar la app, `DocumentIngestor` ejecuta el pipeline completo:
 
 2. **Splitting:** `DocumentSplitters.recursive(300, 30)` — fragmentos de 300 chars con overlap de 30 para mantener contexto entre chunks.
 
-3. **Embedding:** `AllMiniLmL6V2EmbeddingModel` genera vectores de 384 dimensiones localmente (ONNX, sin llamadas a red).
+3. **Embedding:** `OnnxEmbeddingModel` con `paraphrase-multilingual-MiniLM-L12-v2` (cuantizado int8, mean pooling) genera vectores de 384 dimensiones localmente, sin llamadas a red. Es multilingüe: encuentra la cláusula de "remuneración" aunque la pregunta diga "sueldo" o "salario" (el modelo anterior, AllMiniLmL6V2, solo entendía inglés y dependía de que coincidieran las palabras).
+
+   El modelo (~118 MB) no se versiona: la tarea `./gradlew downloadEmbeddingModel` lo descarga a `models/` y corre sola antes de `quarkusDev`, `test` y `build`. Las rutas se configuran con `rag.embedding.model-path` y `rag.embedding.tokenizer-path`.
 
 4. **Almacenamiento:** `PgVector` (Postgres con extensión pgvector) — persiste entre reinicios. `DocumentIngestor` solo re-indexa desde disco si la tabla está vacía.
 
@@ -180,7 +182,11 @@ rag.ingestion.chunk-overlap=30
 
 # Retrieval
 rag.retrieval.max-results=3
-rag.retrieval.min-score=0.0
+rag.retrieval.min-score=0.5
+
+# Embeddings (rutas al modelo ONNX descargado en models/)
+rag.embedding.model-path=models/paraphrase-multilingual-MiniLM-L12-v2/model.onnx
+rag.embedding.tokenizer-path=models/paraphrase-multilingual-MiniLM-L12-v2/tokenizer.json
 
 # Seguridad
 app.api-key=${API_KEY}
@@ -214,7 +220,7 @@ public interface RetrievalConfig {
 | `quarkus-langchain4j-openai` | Integración LLM (API OpenAI-compatible) |
 | `quarkus-hibernate-validator` | Validación `@NotNull`, `@NotBlank` |
 | `quarkus-smallrye-fault-tolerance` | `@RateLimit` en endpoints |
-| `langchain4j-embeddings-all-minilm-l6-v2` | Embeddings locales (ONNX) |
+| `langchain4j-embeddings` | `OnnxEmbeddingModel` para embeddings locales (ONNX) |
 | `langchain4j-document-parser-apache-poi` | Parsing DOCX |
 | `langchain4j-document-parser-apache-pdfbox` | Parsing PDF |
 
