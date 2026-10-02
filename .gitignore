@@ -42,3 +42,9 @@ nb-configuration.xml
 
 # Git worktrees
 .worktrees/
+
+# Claude Code (configuracion local)
+.claude/
+
+# graphify (grafo de conocimiento generado)
+graphify-out/
