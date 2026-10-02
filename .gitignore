@@ -48,3 +48,6 @@ nb-configuration.xml
 
 # graphify (grafo de conocimiento generado)
 graphify-out/
+
+# Environment de Newman/Postman con la API key real (usar environments.example.json como plantilla)
+test/functional/environments.json

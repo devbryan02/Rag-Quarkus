@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a3f2c4d0-7e21-4b8a-9d3f-rag-quarkus-functional",
     "name": "Rag-Quarkus API - Functional",
-    "description": "Flujos exitosos, de error y de borde para POST /chat y POST /documents. Todo en un solo archivo: variables de entorno (baseUrl, apiKey), pre-request scripts y test scripts. Importable directo en Postman y en Bruno (Import Collection -> Postman v2.1).\n\nAntes de correr: setear la variable de colección `apiKey` con el valor real de API_KEY (.env) via UI, o pasarla con --env-var apiKey=... si se corre con newman.",
+    "description": "Flujos exitosos, de error y de borde para POST /chat y POST /documents. Todo en un solo archivo: variables de entorno (baseUrl, apiKey), pre-request scripts y test scripts. Importable directo en Postman y en Bruno (Import Collection -> Postman v2.1).\n\nAntes de correr: setear la variable de colección `apiKey` con el valor real de API_KEY (.env) via UI, o si se corre con newman: -e test/functional/environments.json (copiar desde environments.example.json) o --env-var apiKey=...",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

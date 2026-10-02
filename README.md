@@ -255,10 +255,14 @@ de solicitudes para forzar el rate limit de `/chat`).
   la variable de colección `apiKey` con tu `API_KEY` real.
 - **Bruno:** Import Collection → Postman v2.1 → seleccionar el mismo
   archivo.
-- **CLI (Newman):**
+- **CLI (Newman):** copiar la plantilla del environment, poner tu `API_KEY`
+  real en `apiKey` y correr con `-e` (`environments.json` está en
+  `.gitignore`, así la key no se versiona):
   ```bash
-  newman run test/functional/postman.json --env-var apiKey=tu_api_key
+  cp test/functional/environments.example.json test/functional/environments.json
+  newman run test/functional/postman.json -e test/functional/environments.json
   ```
+  También se puede pasar la key directamente con `--env-var apiKey=tu_api_key`.
 
 ### Ejemplo de petición
 
