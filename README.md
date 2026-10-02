@@ -2,7 +2,7 @@
 
 Sistema **RAG (Retrieval-Augmented Generation)** con **Quarkus 3.37** y **LangChain4j**. Permite preguntas en lenguaje natural sobre documentos indexados (PDF, DOCX, TXT, MD) con respuestas basadas exclusivamente en el contenido de esos documentos.
 
-- **LLM:** Llama 3.3 70B via API de **Groq** (compatible OpenAI)
+- **LLM:** `openai/gpt-oss-120b` via API de **Groq** (compatible OpenAI), configurable con la variable `GROQ_MODEL`
 - **Embeddings:** AllMiniLmL6V2 (local, 384 dimensiones, sin red)
 
 ---
@@ -29,7 +29,7 @@ RagAssistant.chat(question)
   │     └── DefaultRetrievalAugmentor inyecta contexto al prompt
   │
   ▼
-Groq API (llama-3.3-70b-versatile, temp=0.3)
+Groq API (openai/gpt-oss-120b por defecto, temp=0.3)
   │
   ▼
 ChatResponse { answer }
@@ -165,7 +165,7 @@ Al iniciar la app, `DocumentIngestor` ejecuta el pipeline completo:
 # LLM (Groq API compatible OpenAI)
 quarkus.langchain4j.openai.base-url=https://api.groq.com/openai/v1
 quarkus.langchain4j.openai.api-key=${GROQ_API_KEY}
-quarkus.langchain4j.openai.chat-model.model-name=llama-3.3-70b-versatile
+quarkus.langchain4j.openai.chat-model.model-name=${GROQ_MODEL:openai/gpt-oss-120b}
 quarkus.langchain4j.openai.chat-model.temperature=0.3
 quarkus.langchain4j.openai.timeout=30s
 
@@ -230,6 +230,8 @@ public interface RetrievalConfig {
   ```
   GROQ_API_KEY=tu_api_key
   API_KEY=tu_api_key_de_acceso
+  # Opcional: modelo de chat de Groq (por defecto openai/gpt-oss-120b)
+  # GROQ_MODEL=openai/gpt-oss-120b
   ```
 
 ### Desarrollo

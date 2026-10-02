@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RAG (Retrieval-Augmented Generation) service built with Quarkus 3.37 + LangChain4j. Answers natural-language questions strictly from indexed documents (PDF, DOCX, TXT, MD).
 
-- **LLM:** Llama 3.3 70B via Groq API (OpenAI-compatible)
+- **LLM:** `openai/gpt-oss-120b` via Groq API (OpenAI-compatible), overridable with the `GROQ_MODEL` env var
 - **Embeddings:** AllMiniLmL6V2, local/ONNX, 384 dims, no network calls
 
 ## Commands
@@ -32,7 +32,7 @@ java -jar build/quarkus-app/quarkus-run.jar
 ./gradlew build -Dquarkus.native.enabled=true
 ```
 
-Requires `.env` with `GROQ_API_KEY` and `API_KEY` (used by `app.api-key` / Groq client config).
+Requires `.env` with `GROQ_API_KEY` and `API_KEY` (used by `app.api-key` / Groq client config). Optional `GROQ_MODEL` overrides the chat model (default `openai/gpt-oss-120b`).
 
 Example request:
 ```bash
@@ -53,7 +53,7 @@ POST /chat (X-API-Key required)
       - @SystemMessage forces answers to use only retrieved document context
       - RetrievalAugmentor supplied by RetrieverProducer:
           EmbeddingStoreContentRetriever(EmbeddingModel, EmbeddingStore, maxResults=3, minScore=0.0)
-  → Groq API (llama-3.3-70b-versatile, temp=0.3)
+  → Groq API (${GROQ_MODEL:openai/gpt-oss-120b}, temp=0.3)
   → ChatResponse { answer }
 ```
 
