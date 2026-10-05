@@ -25,6 +25,7 @@ dependencies {
     implementation("io.quarkus:quarkus-rest")
     implementation("io.quarkus:quarkus-hibernate-validator:3.37.3")
     implementation("io.quarkus:quarkus-smallrye-fault-tolerance:3.37.3")
+    implementation("io.quarkus:quarkus-smallrye-health")
     testImplementation("io.quarkus:quarkus-junit")
     testImplementation("io.rest-assured:rest-assured")
 
