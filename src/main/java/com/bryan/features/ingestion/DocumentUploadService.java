@@ -3,7 +3,6 @@ package com.bryan.features.ingestion;
 import com.bryan.features.ingestion.exceptions.DuplicateDocumentException;
 import com.bryan.features.ingestion.exceptions.UnsupportedDocumentTypeException;
 import com.bryan.features.ingestion.records.DocumentUploadResponse;
-import dev.langchain4j.data.document.Document;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
@@ -12,28 +11,30 @@ import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 @ApplicationScoped
 public class DocumentUploadService {
 
     @Inject IngestionConfig config;
     @Inject DocumentLoaderFactory loaderFactory;
-    @Inject EmbeddingIngestionService embeddingIngestionService;
+    @Inject FileDocumentIndexer indexer;
+    @Inject IngestionCoordinator coordinator;
 
     public DocumentUploadResponse uploadAndIndex(FileUpload file) {
-        validateFilePresence(file);
-        String fileName = extractAndSanitizeFileName(file.fileName());
-        validateFileExtension(fileName);
-        validateFileSize(file.size(), fileName);
+        try (var guard = coordinator.acquire()) {
+            validateFilePresence(file);
+            String fileName = extractAndSanitizeFileName(file.fileName());
+            validateFileExtension(fileName);
+            validateFileSize(file.size(), fileName);
 
-        Path documentsDir = Path.of(config.documentsPath());
-        Path targetPath = documentsDir.resolve(fileName);
+            Path documentsDir = Path.of(config.documentsPath());
+            Path targetPath = documentsDir.resolve(fileName);
 
-        saveFile(file, documentsDir, targetPath, fileName);
-        indexDocument(targetPath, fileName);
+            saveFile(file, documentsDir, targetPath, fileName);
+            indexDocument(targetPath, fileName);
 
-        return new DocumentUploadResponse(true, fileName, "Documento indexado correctamente");
+            return new DocumentUploadResponse(true, fileName, "Documento indexado correctamente");
+        }
     }
 
     private void validateFilePresence(FileUpload file) {
@@ -46,7 +47,7 @@ public class DocumentUploadService {
         if (rawFileName == null || rawFileName.isBlank()) {
             throw new UnsupportedDocumentTypeException("El archivo no tiene nombre");
         }
-        return Path.of(rawFileName).getFileName().toString();
+        return Path.of(rawFileName.replace('\\', '/')).getFileName().toString();
     }
 
     private void validateFileExtension(String fileName) {
@@ -75,16 +76,15 @@ public class DocumentUploadService {
 
     private void indexDocument(Path targetPath, String fileName) {
         try {
-            Document document = loaderFactory.load(targetPath);
-            embeddingIngestionService.ingest(List.of(document));
-        } catch (RuntimeException e) {
+            indexer.index(Path.of(config.documentsPath()), targetPath);
+        } catch (IOException | RuntimeException e) {
             try {
                 Files.deleteIfExists(targetPath);
             } catch (IOException ignored) {
                 // best-effort cleanup; the original processing failure is what we report
             }
-            throw new UnsupportedDocumentTypeException(
-                    "No se pudo procesar el documento: " + fileName);
+            if (e instanceof RuntimeException runtime) throw runtime;
+            throw new UnsupportedDocumentTypeException("No se pudo procesar el documento: " + fileName);
         }
     }
 }

@@ -1,0 +1,110 @@
+<div class="page-head">
+  <div class="eyebrow">BASE DE CONOCIMIENTO</div>
+  <h1>Documentos</h1>
+  <p>
+    Incorpora fuentes para que el asistente pueda encontrar respuestas con
+    contexto.
+  </p>
+</div>
+@if(!auth.key()){
+<div class="notice">
+  Configura la clave del equipo en <a routerLink="/settings">Ajustes</a> para
+  subir o escanear documentos.
+</div>
+}
+<div class="document-grid">
+  <section class="surface">
+    <div class="section-heading">
+      <span class="step">01</span>
+      <div>
+        <h2>Subir documentos</h2>
+        <p>PDF, Word, texto y Markdown</p>
+      </div>
+    </div>
+    <label class="upload-zone" for="documents-input"
+      ><span class="upload-icon" aria-hidden="true">↑</span
+      ><strong>Selecciona uno o varios archivos</strong
+      ><span>Los archivos se procesan en orden, uno a la vez.</span
+      ><input
+        id="documents-input"
+        type="file"
+        multiple
+        accept=".pdf,.doc,.docx,.txt,.md"
+        (change)="select($event)"
+        [disabled]="busy()||scanning()"
+    /></label>
+    <div class="form-actions">
+      <button
+        ibmButton="primary"
+        (click)="upload()"
+        [disabled]="!auth.key()||busy()||scanning()||!hasQueued()"
+      >
+        {{busy()?'Procesando archivo…':'Subir documentos'}}</button
+      >@if(queue().length&&!busy()){<button
+        ibmButton="ghost"
+        (click)="queue.set([])"
+      >
+        Limpiar lista</button
+      >}
+    </div>
+    @if(queue().length){
+    <ul class="file-list">
+      @for(item of queue();track $index){
+      <li>
+        <div>
+          <strong>{{item.file.name}}</strong
+          ><span>{{formatSize(item.file.size)}}</span>
+        </div>
+        <div class="file-result" [class.error]="item.status==='error'">
+          <span class="tag" [class.success]="item.status==='success'"
+            >{{labels[item.status]}}</span
+          >
+          <p role="status">{{item.message}}</p>
+        </div>
+      </li>
+      }
+    </ul>
+    }
+  </section>
+  <section class="surface scan-card">
+    <div class="section-heading">
+      <span class="step">02</span>
+      <div>
+        <h2>Sincronizar fuentes</h2>
+        <p>Documentos del servidor</p>
+      </div>
+    </div>
+    <p>
+      Busca documentos nuevos o modificados en la carpeta configurada del
+      servidor y actualiza el índice.
+    </p>
+    <p class="helper">
+      El análisis finaliza cuando termina el procesamiento. Puede tardar varios
+      minutos.
+    </p>
+    <button
+      ibmButton="tertiary"
+      (click)="scan()"
+      [disabled]="!auth.key()||busy()||scanning()"
+    >
+      {{scanning()?'Escaneando documentos…':'Escanear documentos'}}
+    </button>
+    @if(scanError()){
+    <div class="error-notice" role="alert">{{scanError()}}</div>
+    } @if(result();as r){
+    <div class="scan-result" aria-live="polite">
+      <h3>Resultado del escaneo</h3>
+      <div class="metrics">
+        @for(metric of metrics;track metric.key){
+        <div>
+          <strong>{{r[metric.key]}}</strong><span>{{metric.label}}</span>
+        </div>
+        }
+      </div>
+      @for(error of r.errors;track $index){
+      <p class="error">{{error.path}}: {{error.reason}}</p>
+      }
+    </div>
+    }
+  </section>
+</div>

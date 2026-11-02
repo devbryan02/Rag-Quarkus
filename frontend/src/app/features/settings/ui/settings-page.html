@@ -1,0 +1,68 @@
+<div class="page-head">
+  <div class="eyebrow">CONFIGURACIÓN</div>
+  <h1>Ajustes del espacio</h1>
+  <p>Gestiona el acceso al servicio y los datos guardados en este navegador.</p>
+</div>
+<section class="surface settings-card">
+  <h2>Acceso al servicio</h2>
+  <p>
+    Usa la clave compartida de tu equipo. Se conserva únicamente en memoria y se
+    elimina al recargar la página.
+  </p>
+  <form (ngSubmit)="save()">
+    <label class="field-label" for="api-key">Clave de acceso</label
+    ><input
+      id="api-key"
+      class="cds--text-input"
+      type="password"
+      autocomplete="off"
+      [(ngModel)]="draft"
+      name="key"
+      placeholder="Introduce la clave de tu equipo"
+    />
+    <div class="form-actions">
+      <button ibmButton="primary" type="submit" [disabled]="!draft.trim()">
+        Guardar clave</button
+      ><button
+        ibmButton="tertiary"
+        type="button"
+        (click)="remove()"
+        [disabled]="!auth.key()"
+      >
+        Eliminar clave
+      </button>
+    </div>
+  </form>
+  @if(feedback()){
+  <p class="inline-success" role="status">{{feedback()}}</p>
+  }
+  <p class="helper">
+    Al cambiar o eliminar la clave se desconecta el chat. Tu historial local se
+    conserva.
+  </p>
+</section>
+<section class="surface settings-card">
+  <h2>Historial local</h2>
+  <p>
+    Las conversaciones se guardan en este navegador: hasta 20 conversaciones,
+    100 mensajes por conversación y 2 MiB en total. Las más antiguas se eliminan
+    cuando hace falta espacio.
+  </p>
+  @if(!confirm()){<button
+    ibmButton="danger--tertiary"
+    (click)="confirm.set(true)"
+  >
+    Borrar historial local</button
+  >}@else{
+  <div class="danger-confirm" role="alert">
+    <p>
+      Se eliminarán todas las conversaciones de este navegador. Esta acción no
+      se puede deshacer.
+    </p>
+    <button ibmButton="danger" (click)="clear()">Confirmar borrado</button
+    ><button ibmButton="ghost" (click)="confirm.set(false)">
+      Conservar historial
+    </button>
+  </div>
+  }
+</section>

@@ -1,18 +1,32 @@
 services:
+  web:
+    build:
+      context: ./frontend
+    container_name: rag-web
+    ports:
+      - "8081:80"
+    depends_on:
+      - app
+    restart: unless-stopped
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: rag-app
+    # En Linux: RAG_APP_UID=$(id -u) RAG_APP_GID=$(id -g) docker compose up -d --build
+    user: "${RAG_APP_UID:-1000}:${RAG_APP_GID:-1000}"
     ports:
       - "8080:8080"
     environment:
       GROQ_API_KEY: ${GROQ_API_KEY}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
       API_KEY: ${API_KEY}
+      WEB_ALLOWED_ORIGINS: ${WEB_ALLOWED_ORIGINS:-http://localhost:4200,http://127.0.0.1:4200,http://localhost:8081,http://127.0.0.1:8081}
     volumes:
-      # Documentos subidos por POST /documents: sin volumen se pierden al recrear el contenedor
-      - documents_data:/deployments/documents
+      # Carpeta compartida: copiar documentos/subcarpetas y ejecutar POST /documents/scan.
+      # Las cargas por POST /documents tambien se guardan aqui.
+      - ./src/main/resources/documents:/deployments/documents
     depends_on:
       - pgvector
     restart: unless-stopped

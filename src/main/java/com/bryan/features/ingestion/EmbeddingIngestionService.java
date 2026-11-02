@@ -1,6 +1,7 @@
 package com.bryan.features.ingestion;
 
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
 import dev.langchain4j.data.segment.TextSegment;
@@ -18,6 +19,16 @@ public class EmbeddingIngestionService {
     @Inject IngestionConfig config;
     @Inject EmbeddingModel embeddingModel;
     @Inject EmbeddingStore<TextSegment> embeddingStore;
+
+    public record PreparedDocument(List<TextSegment> segments, List<Embedding> embeddings) { }
+
+    public PreparedDocument prepare(Document document) {
+        DocumentSplitter splitter = DocumentSplitters.recursive(config.chunkSize(), config.chunkOverlap());
+        List<TextSegment> segments = splitter.split(document);
+        if (segments.isEmpty()) throw new IllegalArgumentException("Documento sin texto procesable");
+        List<Embedding> embeddings = embeddingModel.embedAll(segments).content();
+        return new PreparedDocument(segments, embeddings);
+    }
 
     public void ingest(List<Document> documents) {
         DocumentSplitter splitter = DocumentSplitters.recursive(

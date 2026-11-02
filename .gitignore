@@ -54,3 +54,12 @@ graphify-out/
 
 # Environment de Newman/Postman con la API key real (usar environments.example.json como plantilla)
 test/functional/environments.json
+
+# Angular dependencies and generated verification artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+.task-state/

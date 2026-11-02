@@ -38,7 +38,7 @@ public class DocumentUploadResource {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @APIResponse(responseCode = "401", description = "Header X-API-Key ausente o inválido",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @APIResponse(responseCode = "409", description = "Ya existe un documento con ese nombre",
+            @APIResponse(responseCode = "409", description = "Ya existe un documento con ese nombre o hay una ingesta en curso",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @APIResponse(responseCode = "500", description = "Error inesperado",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

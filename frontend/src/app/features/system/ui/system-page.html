@@ -1,0 +1,37 @@
+<div class="page-head page-head-row">
+  <div>
+    <div class="eyebrow">OBSERVABILIDAD</div>
+    <h1>Estado del sistema</h1>
+    <p>Consulta la disponibilidad del servicio y sus dependencias.</p>
+  </div>
+  <button ibmButton="tertiary" (click)="refresh()" [disabled]="loading()">
+    {{loading()?'Consultando…':'Actualizar estado'}}
+  </button>
+</div>
+<div class="health-grid">
+  @for(item of checks();track item.path){
+  <section class="surface health-card">
+    <div class="health-label">{{item.name}}</div>
+    <div class="health-status" [class.is-up]="item.status==='UP'">
+      <span class="status-dot"></span>{{item.status}}
+    </div>
+    <code>{{item.path}}</code>
+    <p>{{item.detail}}</p>
+  </section>
+  }
+</div>
+<p class="helper" role="status">
+  {{updated()?'Última consulta: '+updated():'Consultando el estado del
+  servicio…'}}
+</p>
+<section class="surface documentation">
+  <div>
+    <h2>Herramientas para desarrolladores</h2>
+    <p>Explora el contrato de la API y prueba sus operaciones.</p>
+  </div>
+  <a href="/q/swagger-ui/" target="_blank" rel="noopener"
+    >Swagger UI <span aria-hidden="true">↗</span></a
+  ><a href="/q/openapi" target="_blank" rel="noopener"
+    >OpenAPI <span aria-hidden="true">↗</span></a
+  >
+</section>

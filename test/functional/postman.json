@@ -717,6 +717,80 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Escaneo manual de carpetas",
+      "item": [
+        {
+          "name": "Scan sin API key devuelve 401",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Requiere API key\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan autenticado devuelve resumen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Escaneo finalizado\", () => pm.response.to.have.status(200));",
+                  "const summary = pm.response.json();",
+                  "pm.test(\"Contadores y errores\", () => { [\"indexed\", \"updated\", \"skipped\", \"failed\"].forEach(k => pm.expect(summary[k]).to.be.a(\"number\")); pm.expect(summary.errors).to.be.an(\"array\"); pm.expect(summary.failed).to.equal(summary.errors.length); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repetir scan no duplica documentos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Sin cambios nuevos\", () => { pm.response.to.have.status(200); const summary = pm.response.json(); pm.expect(summary.indexed).to.equal(0); pm.expect(summary.updated).to.equal(0); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

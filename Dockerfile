@@ -23,7 +23,7 @@ USER quarkus
 EXPOSE 8080
 
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
-# DocumentIngestor reads from the filesystem, not the classpath — point it at the copied docs folder
+# Document scanning and uploads use the filesystem — point them at the documents folder
 ENV RAG_INGESTION_DOCUMENTS_PATH=/deployments/documents
 ENV RAG_EMBEDDING_MODEL_PATH=/deployments/models/paraphrase-multilingual-MiniLM-L12-v2/model.onnx
 ENV RAG_EMBEDDING_TOKENIZER_PATH=/deployments/models/paraphrase-multilingual-MiniLM-L12-v2/tokenizer.json
