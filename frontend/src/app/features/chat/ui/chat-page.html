@@ -1,0 +1,186 @@
+<div class="chat-page">
+  <div class="page-head">
+    <div class="eyebrow">TU CONOCIMIENTO, CONECTADO</div>
+    <h1>Conversaciones</h1>
+    <p>Pregunta, explora y encuentra respuestas en tus documentos.</p>
+  </div>
+  @if(chat.history.warning()){
+  <div class="history-warning" role="status">{{chat.history.warning()}}</div>
+  }
+  <div class="chat-workspace">
+    <aside
+      class="conversation-sidebar"
+      aria-label="Historial de conversaciones"
+    >
+      <button ibmButton="primary" (click)="newChat()">
+        Nueva conversación <span aria-hidden="true">＋</span>
+      </button>
+      <div class="conversation-label">HISTORIAL LOCAL</div>
+      <ul class="conversation-list">
+        @for(c of chat.history.conversations();track c.id){
+        <li [class.active]="chat.history.activeId()===c.id">
+          <button
+            class="conversation-link"
+            (click)="chat.history.select(c.id)"
+            [attr.aria-current]="chat.history.activeId()===c.id?'true':null"
+          >
+            <strong>{{c.title}}</strong
+            ><time>{{c.updatedAt|date:'dd MMM, HH:mm'}}</time></button
+          ><button
+            class="delete-conversation"
+            [attr.aria-label]="'Eliminar conversación '+c.title"
+            (click)="remove(c.id)"
+          >
+            ×
+          </button>
+        </li>
+        }
+      </ul>
+      <p class="sidebar-note">
+        Solo en este navegador.<br />La clave nunca se guarda en el historial.
+      </p>
+    </aside>
+    <section class="chat-main" aria-label="Chat documental">
+      <div class="chat-toolbar">
+        <span class="connection-state"
+          ><span
+            class="status-dot"
+            [class.active]="chat.transport.status()==='Conectado'"
+          ></span
+          >{{chat.transport.status()}}</span
+        ><label class="mode-select"
+          ><span>Modo</span
+          ><select
+            aria-label="Modo de respuesta"
+            [ngModel]="chat.mode()"
+            (ngModelChange)="chat.mode.set($event)"
+            [disabled]="chat.busy()"
+          >
+            <option value="ws">En tiempo real</option>
+            <option value="rest">Respuesta completa</option>
+          </select></label
+        >
+      </div>
+      @if(chat.mode()==='rest'){
+      <div class="rest-note">
+        Pregunta independiente: este modo no envía el contexto de la
+        conversación.
+      </div>
+      }
+      <div
+        class="chat-scroll"
+        #scroll
+        (scroll)="onScroll()"
+        role="log"
+        aria-label="Mensajes de la conversación"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
+        @if(!chat.history.active()?.messages?.length){
+        <div class="chat-empty">
+          <div class="empty-symbol" aria-hidden="true">✳</div>
+          <h2>Una pregunta abre nuevas ideas</h2>
+          <p>
+            Conversa con tu base de conocimiento. Empieza con una pregunta sobre
+            tus documentos.
+          </p>
+          <div class="suggestions">
+            @for(suggestion of suggestions;track suggestion){<button
+              (click)="draft.set(suggestion);focusComposer()"
+            >
+              {{suggestion}} <span aria-hidden="true">↗</span></button
+            >}
+          </div>
+        </div>
+        } @for(message of chat.history.active()?.messages??[];track message.id){
+        <article
+          class="message"
+          [class.assistant]="message.role==='assistant'"
+          [class.user]="message.role==='user'"
+        >
+          <div class="message-head">
+            <span class="avatar" aria-hidden="true"
+              >{{message.role==='user'?'TÚ':'N'}}</span
+            ><strong>{{message.role==='user'?'Tú':'Nexo'}}</strong
+            ><time>{{message.createdAt|date:'HH:mm'}}</time>
+          </div>
+          @if(message.role==='assistant'){<app-markdown
+            [content]="message.content"
+          />}@else{
+          <div class="message-body">{{message.content}}</div>
+          } @if(message.role==='assistant'){
+          <div class="message-status">
+            @switch(message.status){@case('pending'){<span
+              >{{message.content?'Generando respuesta':'Buscando en tus
+              documentos'}}<span
+                class="streaming-indicator"
+                aria-hidden="true"
+              ></span></span
+            >}@case('cancelling'){<span>Deteniendo respuesta…</span
+            >}@case('cancelled'){<span>Cancelada</span>}@case('interrupted'){<span>Interrumpida</span>}@case('error'){<span
+              class="error"
+              >No se pudo completar</span
+            >}@case('complete'){<span>Respuesta completada</span
+            >}}@if(['error','interrupted','cancelled'].includes(message.status)){<button
+              (click)="chat.retry(message.id)"
+              [disabled]="chat.busy()||!chat.auth.key()"
+            >
+              Reintentar pregunta</button
+            >}
+          </div>
+          }
+        </article>
+        }
+      </div>
+      @if(chat.error()){
+      <div class="error-notice chat-error" role="alert">{{chat.error()}}</div>
+      }
+      <div class="composer-section">
+        @if(!chat.auth.key()){
+        <div class="notice">
+          Necesitas la clave de tu equipo.
+          <a routerLink="/settings">Configurar en Ajustes</a>
+        </div>
+        }
+        <form (ngSubmit)="send()">
+          <label class="sr-only" for="question">Tu pregunta</label>
+          <div class="composer">
+            <textarea
+              #composer
+              id="question"
+              name="question"
+              placeholder="Pregunta sobre tus documentos…"
+              [ngModel]="draft()"
+              (ngModelChange)="draft.set($event)"
+              (keydown)="keyboard($event)"
+              maxlength="4000"
+              rows="2"
+              [disabled]="chat.busy()"
+              aria-describedby="composer-help"
+            ></textarea
+            >@if(chat.busy()){<button
+              ibmButton="danger"
+              type="button"
+              aria-label="Detener respuesta"
+              (click)="chat.cancel()"
+            >
+              <span aria-hidden="true">■</span></button
+            >}@else{<button
+              ibmButton="primary"
+              type="submit"
+              aria-label="Enviar pregunta"
+              [disabled]="!draft().trim()||!chat.auth.key()"
+            >
+              <span aria-hidden="true">↑</span></button
+            >}
+          </div>
+          <div class="composer-meta">
+            <span id="composer-help"
+              >Enter para enviar · Mayús + Enter para nueva línea</span
+            ><span>{{draft().length}} / 4000</span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>

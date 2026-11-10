@@ -1,0 +1,796 @@
+{
+  "info": {
+    "_postman_id": "a3f2c4d0-7e21-4b8a-9d3f-rag-quarkus-functional",
+    "name": "Rag-Quarkus API - Functional",
+    "description": "Flujos exitosos, de error y de borde para POST /chat y POST /documents. Todo en un solo archivo: variables de entorno (baseUrl, apiKey), pre-request scripts y test scripts. Importable directo en Postman y en Bruno (Import Collection -> Postman v2.1).\n\nAntes de correr: setear la variable de colección `apiKey` con el valor real de API_KEY (.env) via UI, o si se corre con newman: -e test/functional/environments.json (copiar desde environments.example.json) o --env-var apiKey=...",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "apiKey", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Chat sin API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test(\"Body es ErrorResponse\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql(401);",
+                  "    pm.expect(json.message).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"question\": \"hola\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents sin API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "pm.test(\"Body es ErrorResponse\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Falla rapido y claro si apiKey no fue provisto, en vez de dejar que",
+              "// cada request caiga en 401 y produzca fallas de assertion confusas.",
+              "const apiKey = pm.variables.get(\"apiKey\");",
+              "if (!apiKey) {",
+              "    throw new Error(\"La variable de coleccion 'apiKey' esta vacia. Corre con: newman run test/functional/postman.json --env-var apiKey=<tu API_KEY>, o setea el valor en Postman/Bruno antes de correr.\");",
+              "}"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Chat - exito",
+          "description": "Requiere que GROQ_API_KEY tenga acceso valido al modelo configurado (quarkus.langchain4j.openai.chat-model.model-name). Si Groq devuelve 500 por model_not_found u otro error de cuenta, es un problema de configuracion externa, no de este endpoint.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Responde con answer no vacio\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.answer).to.be.a(\"string\");",
+                  "    pm.expect(json.answer.length).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"question\": \"Que es este proyecto?\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Chat - pregunta en blanco (validacion)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Reporta violacion de validacion\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql(400);",
+                  "    pm.expect(json.violations).to.be.an(\"array\").that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"question\": \"\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Chat - metodo no soportado (GET)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 405\", function () {",
+                  "    pm.response.to.have.status(405);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Chat - rate limit excedido",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Dispara varias solicitudes previas para agotar el limite de 10/min antes",
+                  "// de que corra el request principal (que debe recibir 429). Encadenadas por",
+                  "// callback (no top-level await: el sandbox de Postman/Newman no lo soporta),",
+                  "// pm.sendRequest hace que el pre-request script espere hasta que terminan.",
+                  "const base = pm.variables.get(\"baseUrl\");",
+                  "const key = pm.variables.get(\"apiKey\");",
+                  "let remaining = 10;",
+                  "",
+                  "function warmupOnce(done) {",
+                  "    if (remaining <= 0) {",
+                  "        done();",
+                  "        return;",
+                  "    }",
+                  "    remaining--;",
+                  "    pm.sendRequest({",
+                  "        url: base + \"/chat\",",
+                  "        method: \"POST\",",
+                  "        header: {",
+                  "            \"Content-Type\": \"application/json\",",
+                  "            \"X-API-Key\": key",
+                  "        },",
+                  "        body: {",
+                  "            mode: \"raw\",",
+                  "            raw: JSON.stringify({ question: \"warmup\" })",
+                  "        }",
+                  "    }, function () { warmupOnce(done); });",
+                  "}",
+                  "",
+                  "warmupOnce(function () {});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 429\", function () {",
+                  "    pm.response.to.have.status(429);",
+                  "});",
+                  "pm.test(\"Body es ErrorResponse de rate limit\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql(429);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"question\": \"deberia rebotar por rate limit\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Falla rapido y claro si apiKey no fue provisto, en vez de dejar que",
+              "// cada request caiga en 401 y produzca fallas de assertion confusas.",
+              "const apiKey = pm.variables.get(\"apiKey\");",
+              "if (!apiKey) {",
+              "    throw new Error(\"La variable de coleccion 'apiKey' esta vacia. Corre con: newman run test/functional/postman.json --env-var apiKey=<tu API_KEY>, o setea el valor en Postman/Bruno antes de correr.\");",
+              "}"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "Documents - exito",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const filename = \"postman-happy-\" + Date.now() + \".txt\";",
+                  "pm.collectionVariables.set(\"lastHappyFilename\", filename);",
+                  "",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"' + filename + '\"' + CRLF +",
+                  "    \"Content-Type: text/plain\" + CRLF + CRLF +",
+                  "    \"Contenido de prueba para RAG generado desde Postman/Bruno.\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Body es DocumentUploadResponse exitoso\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(true);",
+                  "    pm.expect(json.filename).to.eql(pm.collectionVariables.get(\"lastHappyFilename\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - falta el campo file",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"notFile\"' + CRLF + CRLF +",
+                  "    \"valor irrelevante\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Reporta archivo faltante\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - extension no soportada",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"postman-unsupported.zip\"' + CRLF +",
+                  "    \"Content-Type: application/zip\" + CRLF + CRLF +",
+                  "    \"dummy\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Reporta extension no soportada\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.message).to.include(\"Formato no soportado\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - contenido vacio",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"postman-empty.txt\"' + CRLF +",
+                  "    \"Content-Type: text/plain\" + CRLF + CRLF +",
+                  "    \"\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Reporta archivo vacio\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.message).to.include(\"vac\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - contenido en blanco",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"postman-blank.txt\"' + CRLF +",
+                  "    \"Content-Type: text/plain\" + CRLF + CRLF +",
+                  "    \"   \\n   \" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Reporta documento no procesable\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.status).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - duplicado (1 - subir)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"postman-duplicate-fixture.txt\"' + CRLF +",
+                  "    \"Content-Type: text/plain\" + CRLF + CRLF +",
+                  "    \"Contenido fijo usado para probar el caso de duplicado.\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Idempotente entre corridas: los embeddings persisten en pgvector,",
+                  "// asi que una corrida posterior a la primera vera 409 aqui tambien.",
+                  "pm.test(\"Status code is 201 o 409\", function () {",
+                  "    pm.expect([201, 409]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - duplicado (2 - subir de nuevo)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const boundary = \"----PostmanBoundary\" + Date.now();",
+                  "const CRLF = \"\\r\\n\";",
+                  "const body =",
+                  "    \"--\" + boundary + CRLF +",
+                  "    'Content-Disposition: form-data; name=\"file\"; filename=\"postman-duplicate-fixture.txt\"' + CRLF +",
+                  "    \"Content-Type: text/plain\" + CRLF + CRLF +",
+                  "    \"Contenido fijo usado para probar el caso de duplicado.\" + CRLF +",
+                  "    \"--\" + boundary + \"--\" + CRLF;",
+                  "",
+                  "pm.request.body.mode = \"raw\";",
+                  "pm.request.body.raw = body;",
+                  "pm.request.headers.upsert({ key: \"Content-Type\", value: \"multipart/form-data; boundary=\" + boundary });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"Reporta duplicado\", function () {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.success).to.eql(false);",
+                  "    pm.expect(json.message).to.include(\"postman-duplicate-fixture.txt\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "body": { "mode": "raw", "raw": "" },
+            "url": {
+              "raw": "{{baseUrl}}/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Documents - path inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-API-Key", "value": "{{apiKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/documents/nope",
+              "host": ["{{baseUrl}}"],
+              "path": ["documents", "nope"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Escaneo manual de carpetas",
+      "item": [
+        {
+          "name": "Scan sin API key devuelve 401",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Requiere API key\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan autenticado devuelve resumen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Escaneo finalizado\", () => pm.response.to.have.status(200));",
+                  "const summary = pm.response.json();",
+                  "pm.test(\"Contadores y errores\", () => { [\"indexed\", \"updated\", \"skipped\", \"failed\"].forEach(k => pm.expect(summary[k]).to.be.a(\"number\")); pm.expect(summary.errors).to.be.an(\"array\"); pm.expect(summary.failed).to.equal(summary.errors.length); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Repetir scan no duplica documentos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{apiKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/documents/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Sin cambios nuevos\", () => { pm.response.to.have.status(200); const summary = pm.response.json(); pm.expect(summary.indexed).to.equal(0); pm.expect(summary.updated).to.equal(0); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

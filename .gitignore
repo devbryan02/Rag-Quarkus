@@ -39,3 +39,27 @@ nb-configuration.xml
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Git worktrees
+.worktrees/
+
+# Modelo de embeddings ONNX (lo descarga ./gradlew downloadEmbeddingModel)
+models/
+
+# Claude Code (configuracion local)
+.claude/
+
+# graphify (grafo de conocimiento generado)
+graphify-out/
+
+# Environment de Newman/Postman con la API key real (usar environments.example.json como plantilla)
+test/functional/environments.json
+
+# Angular dependencies and generated verification artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
+.task-state/

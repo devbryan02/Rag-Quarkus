@@ -1,0 +1,9 @@
+{
+  "id": "rag-quarkus-local",
+  "name": "Rag-Quarkus - Local",
+  "values": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "default", "enabled": true },
+    { "key": "apiKey", "value": "tu_api_key", "type": "secret", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment"
+}

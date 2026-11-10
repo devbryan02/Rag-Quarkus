@@ -27,6 +27,12 @@ public class DocumentLoaderFactory {
         }
     }
 
+    public boolean isSupported(String fileName) {
+        String lower = fileName.toLowerCase();
+        return lower.endsWith(".pdf") || lower.endsWith(".docx") || lower.endsWith(".doc")
+                || lower.endsWith(".txt") || lower.endsWith(".md");
+    }
+
     private DocumentParser resolveParser(String fileName) {
         if (fileName.endsWith(".pdf")) {
             return new ApachePdfBoxDocumentParser();

@@ -1,26 +1,29 @@
 package com.bryan.shared.embedings;
 
-import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import dev.langchain4j.model.embedding.onnx.OnnxEmbeddingModel;
+import dev.langchain4j.model.embedding.onnx.PoolingMode;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+
+import java.nio.file.Path;
 
 @ApplicationScoped
 public class EmbeddingStoreProducer {
 
-    @Produces
-    @Singleton
-    public EmbeddingStore<TextSegment> embeddingStore() {
-        return new InMemoryEmbeddingStore<>();
-    }
+    @Inject EmbeddingConfig config;
 
+    // paraphrase-multilingual-MiniLM-L12-v2: multilingüe (relaciona "sueldo" con
+    // "remuneración" aunque no compartan palabras), 384 dims, mean pooling.
     @Produces
     @Singleton
     public EmbeddingModel embeddingModel() {
-        return new AllMiniLmL6V2EmbeddingModel();
+        return new OnnxEmbeddingModel(
+                Path.of(config.modelPath()),
+                Path.of(config.tokenizerPath()),
+                PoolingMode.MEAN
+        );
     }
 }

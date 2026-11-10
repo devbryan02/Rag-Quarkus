@@ -1,0 +1,16 @@
+node_modules
+.angular
+dist
+out-tsc
+playwright-report
+test-results
+e2e
+tests
+.env
+.env.*
+*.log
+.git
+*.pem
+*.key
+secrets
+.npmrc
